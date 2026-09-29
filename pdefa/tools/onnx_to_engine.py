@@ -2,19 +2,16 @@
 """
 ONNX -> .engine converter (v2)
 
-Changes (v2):
-  - .engine v2: input/output TensorInfo (name + shape + dtype) added
-  - Old v1 files still readable by the runtime (fallback)
-  - File existence check
-  - Topological sort (Kahn)
-  - Split -> Slice conversion
+Degisiklikler:
+  - .engine v2: input/output TensorInfo (name + shape + dtype)
+  - Topolojik siralama (Kahn)
+  - Split -> Slice donusumu
   - Identity/Dropout/Cast passthrough
-  - Node-identity based Conv+SiLU fusion
-  - Graph output: taken from real graph.output
-  - Dead-node elimination
-  - Clear error messages
+  - Conv+SiLU fusion C++ Session'da yapiliyor (burada YAPILMIYOR)
+  - Sadece ILK graph output yaziliyor (yeni PyTorch ara output'lari ekliyor)
+  - Dinamik cikti infosu
 
-Usage: python onnx_to_engine.py model.onnx model.engine
+Kullanim: python onnx_to_engine.py model.onnx model.engine
 """
 import os
 import sys
@@ -25,11 +22,8 @@ import numpy as np
 import onnx
 from onnx import numpy_helper
 
-# ============================================================
-#  CONSTANTS
-# ============================================================
 MAGIC = 0x4E474E45
-VERSION = 2                     # v2: input/output infos
+VERSION = 2
 
 OP_CONV2D           = 1
 OP_MATMUL           = 2
@@ -83,7 +77,6 @@ OP_CLIP             = 66
 OP_ARGMAX           = 67
 OP_STACK            = 68
 
-
 DT_F32 = 12
 DT_I8  = 2
 PARAMS_SIZE = 128
@@ -107,7 +100,7 @@ ONNX_OP_MAP = {
     "MaxPool":            OP_MAXPOOL2D,
     "AveragePool":        OP_AVGPOOL2D,
     "GlobalAveragePool":  OP_AVGPOOL2D,
-    "ReduceMean":         OP_AVGPOOL2D,      # GlobalAveragePool for opset-17
+    "ReduceMean":         OP_AVGPOOL2D,
     "BatchNormalization": OP_BATCHNORM2D,
     "Clip":               OP_CLIP,
     "ArgMax":             OP_ARGMAX,
@@ -142,9 +135,6 @@ ONNX_OP_MAP = {
 PASSTHROUGH_OPS = {"Identity", "Dropout", "Cast"}
 
 
-# ============================================================
-#  HELPERS
-# ============================================================
 def get_attr(node, name, default=None):
     for a in node.attribute:
         if a.name == name:
@@ -158,16 +148,12 @@ def get_attr(node, name, default=None):
 
 def get_ints(node, name, default=None):
     v = get_attr(node, name, default)
-    if v is None:
-        return default
-    if isinstance(v, list):
-        return v
+    if v is None: return default
+    if isinstance(v, list): return v
     return [v]
 
 
 def get_tensor_constant_value(graph, name):
-    """Return the value of a name from initializer OR Constant node.
-    Always returns a list (even for scalars, e.g. [x])."""
     init = next((i for i in graph.initializer if i.name == name), None)
     if init is not None:
         v = onnx.numpy_helper.to_array(init).tolist()
@@ -223,7 +209,7 @@ def topo_sort_nodes(graph):
                 q.append(j)
 
     if len(order) != len(nodes):
-        raise RuntimeError("Topological sort failed - cycle present?")
+        raise RuntimeError("Topolojik siralama basarisiz - dongu var mi?")
     return [nodes[i] for i in order]
 
 
@@ -283,9 +269,6 @@ def expand_split_to_slices(graph):
 
 
 def expand_reduce_sum_to_chain(graph):
-    """Split ONNX ReduceSum(axes=[2,3]) into two separate ops:
-    ReduceSum(axis=2) + ReduceSum(axis=3).
-    The engine only supports single-axis reduce."""
     new_nodes = []
     for node in graph.node:
         if node.op_type != "ReduceSum":
@@ -297,14 +280,12 @@ def expand_reduce_sum_to_chain(graph):
             axes = get_tensor_constant_value(graph, node.input[1])
 
         if not axes:
-            # Assume single axis (default = -1)
             axes = [-1]
 
         if len(axes) <= 1:
             new_nodes.append(node)
             continue
 
-        # Multi-axis: split into per-axis chain
         cur_input = node.input[0]
         for i, ax in enumerate(axes):
             is_last = (i == len(axes) - 1)
@@ -326,41 +307,6 @@ def expand_reduce_sum_to_chain(graph):
 
     graph.ClearField("node")
     graph.node.extend(new_nodes)
-
-
-def fuse_conv_silu(graph):
-    producer = {}
-    for n in graph.node:
-        for o in n.output:
-            if o:
-                producer[o] = n
-
-    silu_skip_names = set()
-    conv_silu_out = {}
-    matched = 0
-
-    for n in graph.node:
-        if n.op_type != "Mul" or len(n.input) != 2:
-            continue
-        a, b = n.input
-        for x, y in ((a, b), (b, a)):
-            sig = producer.get(x)
-            if not (sig and sig.op_type == "Sigmoid" and len(sig.input) == 1):
-                continue
-            if sig.input[0] != y:
-                continue
-            conv = producer.get(y)
-            if not (conv and conv.op_type == "Conv"):
-                continue
-
-            silu_skip_names.add(sig.name)
-            silu_skip_names.add(n.name)
-            conv_silu_out[conv.name] = n.output[0]
-            matched += 1
-            break
-
-    print(f"   [FUSE] matched={matched}, skip_names={len(silu_skip_names)}")
-    return silu_skip_names, conv_silu_out
 
 
 def pack_op_params(
@@ -387,36 +333,32 @@ def pack_op_params(
     return bytes(buf[:PARAMS_SIZE])
 
 
-# ============================================================
-#  ONNX dtype -> EngineDType
-# ============================================================
 def onnx_dtype_to_engine(elem_type):
     m = {
-        onnx.TensorProto.FLOAT:    12,   # F32
-        onnx.TensorProto.FLOAT16:  10,   # F16
-        onnx.TensorProto.BFLOAT16: 11,   # BF16
-        onnx.TensorProto.INT8:      2,   # I8
-        onnx.TensorProto.UINT8:     3,   # U8
+        onnx.TensorProto.FLOAT:    12,
+        onnx.TensorProto.FLOAT16:  10,
+        onnx.TensorProto.BFLOAT16: 11,
+        onnx.TensorProto.INT8:      2,
+        onnx.TensorProto.UINT8:     3,
         onnx.TensorProto.INT16:     4,
         onnx.TensorProto.UINT16:    5,
-        onnx.TensorProto.INT32:     6,   # I32
+        onnx.TensorProto.INT32:     6,
         onnx.TensorProto.UINT32:    7,
-        onnx.TensorProto.INT64:     8,   # I64
+        onnx.TensorProto.INT64:     8,
         onnx.TensorProto.UINT64:    9,
-        onnx.TensorProto.BOOL:      1,   # Bool
-        onnx.TensorProto.DOUBLE:   13,   # F64
+        onnx.TensorProto.BOOL:      1,
+        onnx.TensorProto.DOUBLE:   13,
     }
     return m.get(elem_type, 12)
 
 
 def extract_tensor_info(tp):
-    """ONNX ValueInfoProto -> {name, shape, dtype}"""
     shape = []
     for d in tp.type.tensor_type.shape.dim:
         if d.HasField('dim_value'):
             shape.append(int(d.dim_value))
         else:
-            shape.append(-1)   # dynamic dim
+            shape.append(-1)
     return {
         "name":  tp.name,
         "shape": shape,
@@ -424,54 +366,59 @@ def extract_tensor_info(tp):
     }
 
 
-# ============================================================
-#  CONVERT
-# ============================================================
 def convert(onnx_path, engine_path):
     if not os.path.exists(onnx_path):
-        print(f"ERROR: ONNX file not found: {onnx_path}")
-        print("   Export it first:")
-        print("   python -c \"from ultralytics import YOLO; "
-              "YOLO('yolov8n.pt').export(format='onnx', opset=17, imgsz=640, dynamic=False)\"")
+        print(f"HATA: ONNX dosyasi yok: {onnx_path}")
         sys.exit(1)
 
-    print(f"Reading ONNX: {onnx_path}")
+    print(f"ONNX okunuyor: {onnx_path}")
     try:
         model = onnx.load(onnx_path)
         onnx.checker.check_model(model)
     except Exception as e:
-        print(f"ERROR: ONNX load/check failed: {e}")
+        print(f"HATA: ONNX yuklenemedi / bozuk: {e}")
         sys.exit(1)
 
     graph = model.graph
-    print(f"   ONNX node count: {len(graph.node)}")
+    print(f"   ONNX node sayisi: {len(graph.node)}")
 
-    # ---- 1) Topological sort ----
+    # ---- 1) Topolojik siralama ----
     try:
         sorted_nodes = topo_sort_nodes(graph)
         graph.ClearField("node")
         graph.node.extend(sorted_nodes)
-        print("   [OK] Topological sort")
+        print(f"   [OK] Topolojik siralama")
     except Exception as e:
-        print(f"   [WARN] Topological sort skipped: {e}")
+        print(f"   [WARN] Topolojik siralama atlandi: {e}")
 
     # ---- 2) Split -> Slice ----
     n_before = len(graph.node)
     expand_split_to_slices(graph)
     n_after = len(graph.node)
     if n_after != n_before:
-        print(f"   [OK] Split -> Slice: {n_before} -> {n_after} nodes")
+        print(f"   [OK] Split -> Slice: {n_before} -> {n_after} node")
 
-    # ---- 2.5) ReduceSum (multi-axis) -> chain ----
+    # ---- 2.5) ReduceSum (multi-axis) -> zincir ----
     n_before = len(graph.node)
     expand_reduce_sum_to_chain(graph)
     n_after = len(graph.node)
     if n_after != n_before:
-        print(f"   [OK] ReduceSum expand: {n_before} -> {n_after} nodes")
+        print(f"   [OK] ReduceSum expand: {n_before} -> {n_after} node")
 
-    # ---- 3) Conv+SiLU fusion ----
-    silu_skip, conv_silu_out = fuse_conv_silu(graph)
-    print(f"   [OK] {len(conv_silu_out)} Conv+SiLU fusions")
+    # ---- 2.6) Rewrite sonrasi tekrar topolojik siralama ----
+    try:
+        sorted_nodes = topo_sort_nodes(graph)
+        graph.ClearField("node")
+        graph.node.extend(sorted_nodes)
+        print(f"   [OK] Rewrite sonrasi topolojik siralama")
+    except Exception as e:
+        print(f"   [WARN] Rewrite sonrasi topo sort atlandi: {e}")
+
+    # ---- 3) Conv+SiLU fusion YOK ----
+    # C++ Session::fuse_conv_activations_() zaten yapiyor ve consumer
+    # kontrolu yapiyor. Python'da fuse etmek graph'i bozuyor.
+    silu_skip, conv_silu_out = set(), {}
+    print(f"   [OK] 0 Conv+SiLU fusion (C++ Session'da yapilacak)")
 
     # ---- 4) Weights ----
     weights = []
@@ -481,16 +428,14 @@ def convert(onnx_path, engine_path):
         arr = np.ascontiguousarray(arr, dtype=np.float32)
         weight_name_to_idx[init.name] = len(weights)
         weights.append((init.name, arr, False))
-    print(f"   {len(weights)} weights")
+    print(f"   {len(weights)} agirlik")
 
     # ---- 5) Tensor -> intermediate index ----
     tensor_to_inter = {}
     next_inter = [0]
 
     def alloc_inter():
-        i = next_inter[0]
-        next_inter[0] += 1
-        return i
+        i = next_inter[0]; next_inter[0] += 1; return i
 
     graph_inputs_inter = []
     for inp in graph.input:
@@ -500,7 +445,7 @@ def convert(onnx_path, engine_path):
         tensor_to_inter[inp.name] = ext_idx
         graph_inputs_inter.append(ext_idx)
 
-    # ---- 5.5) v2: Input/Output infos ----
+    # ---- 5.5) v2: Input/Output infos (SADECE ILK OUTPUT) ----
     input_infos  = []
     output_infos = []
 
@@ -509,8 +454,8 @@ def convert(onnx_path, engine_path):
             continue
         input_infos.append(extract_tensor_info(inp))
 
-    for out in graph.output:
-        output_infos.append(extract_tensor_info(out))
+    if graph.output:
+        output_infos.append(extract_tensor_info(graph.output[0]))
 
     # ---- 6) Node conversion ----
     engine_nodes = []
@@ -532,8 +477,7 @@ def convert(onnx_path, engine_path):
             v_tensor = None
             for a in node.attribute:
                 if a.name == "value":
-                    v_tensor = a.t
-                    break
+                    v_tensor = a.t; break
             if v_tensor is not None:
                 arr = numpy_helper.to_array(v_tensor)
                 arr = np.ascontiguousarray(arr, dtype=np.float32)
@@ -573,8 +517,7 @@ def convert(onnx_path, engine_path):
             inp_name = resolve_name(inp_name)
             if inp_name.startswith("__SKIPPED_"):
                 skipped.append(("CONSUMER", node.name))
-                node_inputs = None
-                break
+                node_inputs = None; break
             if inp_name in weight_name_to_idx:
                 node_inputs.append(-1000 - weight_name_to_idx[inp_name])
             elif inp_name in tensor_to_inter:
@@ -587,7 +530,6 @@ def convert(onnx_path, engine_path):
         if node_inputs is None:
             continue
 
-        # ---- Clip: opset<11 uses attrs, opset>=11 uses extra inputs ----
         clip_min_val = None
         clip_max_val = None
         if op_type == "Clip":
@@ -595,10 +537,8 @@ def convert(onnx_path, engine_path):
             clip_max_val = get_attr(node, "max", None)
 
             def _to_float(x):
-                if x is None:
-                    return None
-                if isinstance(x, (int, float)):
-                    return float(x)
+                if x is None: return None
+                if isinstance(x, (int, float)): return float(x)
                 if isinstance(x, (list, tuple)) and len(x) > 0:
                     return float(x[0])
                 return None
@@ -620,19 +560,13 @@ def convert(onnx_path, engine_path):
                 node_inputs.append(-1000 - weight_name_by_idx)
 
         node_outputs = []
-        if node.name in conv_silu_out:
-            target = conv_silu_out[node.name]
-            if target not in tensor_to_inter:
-                tensor_to_inter[target] = alloc_inter()
-            node_outputs.append(tensor_to_inter[target])
-        else:
-            for out_name in node.output:
-                if not out_name:
-                    continue
-                out_name = resolve_name(out_name)
-                if out_name not in tensor_to_inter:
-                    tensor_to_inter[out_name] = alloc_inter()
-                node_outputs.append(tensor_to_inter[out_name])
+        for out_name in node.output:
+            if not out_name:
+                continue
+            out_name = resolve_name(out_name)
+            if out_name not in tensor_to_inter:
+                tensor_to_inter[out_name] = alloc_inter()
+            node_outputs.append(tensor_to_inter[out_name])
 
         params = {}
         if op_type == "Conv":
@@ -651,8 +585,6 @@ def convert(onnx_path, engine_path):
                 "dil_w":    d[1] if len(d) > 1 else 1,
                 "groups":   grp,
             }
-            if node.name in conv_silu_out:
-                params["fused_activation"] = 5
         elif op_type in ("MaxPool", "AveragePool"):
             k = get_ints(node, "kernel_shape", [2, 2])
             s = get_ints(node, "strides", [1, 1])
@@ -666,7 +598,6 @@ def convert(onnx_path, engine_path):
                 "pad_w":    p[1] if len(p) >= 2 else 0,
             }
         elif op_type == "ReduceMean":
-            # GlobalAveragePool equivalent
             params = {
                 "kernel_h": 0,
                 "kernel_w": 0,
@@ -696,8 +627,8 @@ def convert(onnx_path, engine_path):
             lo = clip_min_val if clip_min_val is not None else -3.4028235e+38
             hi = clip_max_val if clip_max_val is not None else  3.4028235e+38
             params = {
-                "eps":          float(lo),   # clip_min
-                "leaky_slope":  float(hi),   # clip_max
+                "eps":          float(lo),
+                "leaky_slope":  float(hi),
             }
         elif op_type == "ArgMax":
             params = {"axis": get_attr(node, "axis", 0)}
@@ -739,7 +670,6 @@ def convert(onnx_path, engine_path):
                         1 if get_attr(node, "mode", "nearest") == "linear" else 0,
                 }
 
-        # MatMul: transpose 2D weight
         if engine_op == OP_MATMUL and len(node_inputs) >= 2:
             w_neg = node_inputs[1]
             if w_neg <= -1000:
@@ -760,32 +690,33 @@ def convert(onnx_path, engine_path):
             "params": params,
         })
 
-    # ---- 7) Graph outputs ----
+    # ---- 7) Graph outputs (SADECE ILK OUTPUT) ----
     graph_outputs_inter = []
-    for out in graph.output:
+    if graph.output:
+        out = graph.output[0]
         name = resolve_name(out.name)
         if name in tensor_to_inter:
             graph_outputs_inter.append(tensor_to_inter[name])
         else:
-            print(f"   [WARN] Graph output '{out.name}' not found in intermediates")
+            print(f"   [WARN] First graph output '{out.name}' not found")
     if not graph_outputs_inter and engine_nodes:
         graph_outputs_inter = list(engine_nodes[-1]["outputs"])
-        print("   [WARN] Fallback: last node outputs")
+        print(f"   [WARN] Fallback: son node output")
 
-    # ---- 8) Report ----
+    # ---- 8) Rapor ----
     if skipped:
         unique_ops = sorted(set(op for op, _ in skipped if op != "CONSUMER"))
-        print(f"\n[WARN] Unsupported ops ({len(skipped)} nodes affected):")
+        print(f"\n[WARN] Desteklenmeyen op'lar ({len(skipped)} node etkilendi):")
         for op in unique_ops:
             count = sum(1 for o, _ in skipped if o == op)
-            print(f"     - {op}: {count} nodes")
+            print(f"     - {op}: {count} node")
 
-    # ---- 9) Write ----
+    # ---- 9) Yaz ----
     write_engine(engine_path, weights, engine_nodes,
                  graph_inputs_inter, graph_outputs_inter,
                  input_infos, output_infos)
 
-    print(f"\n[OK] Wrote: {engine_path}")
+    print(f"\n[OK] Yazildi: {engine_path}")
     print(f"   Weights: {len(weights)}")
     print(f"   Nodes:   {len(engine_nodes)}")
     print(f"   Inputs:  {graph_inputs_inter}")
@@ -798,9 +729,6 @@ def convert(onnx_path, engine_path):
             print(f"   out[{i}] = {info['name']} {tuple(info['shape'])} dtype={info['dtype']}")
 
 
-# ============================================================
-#  WRITE (v2)
-# ============================================================
 def _write_tensor_info(f, info):
     name = info.get("name", "") or ""
     nb = name.encode('utf-8')
@@ -823,7 +751,6 @@ def write_engine(path, weights, nodes, graph_inputs, graph_outputs,
     if output_infos is None: output_infos = []
 
     with open(path, 'wb') as f:
-        # ---- Header ----
         f.write(struct.pack('<I', MAGIC))
         f.write(struct.pack('<I', VERSION))
         f.write(struct.pack('<I', len(weights)))
@@ -833,7 +760,6 @@ def write_engine(path, weights, nodes, graph_inputs, graph_outputs,
         brand_bytes = brand[:63] + b'\x00' * (64 - len(brand[:63]))
         f.write(brand_bytes)
 
-        # ---- Weight descriptors ----
         cursor = 0
         for item in weights:
             if len(item) == 3:
@@ -853,19 +779,17 @@ def write_engine(path, weights, nodes, graph_inputs, graph_outputs,
             f.write(struct.pack('<Q', size))
             cursor += size
 
-        # ---- Nodes ----
         _PACK_KEYS = {
-            "stride_h", "stride_w", "pad_h", "pad_w", "dil_h", "dil_w", "groups",
-            "kernel_h", "kernel_w",
-            "scale_h", "scale_w", "target_h", "target_w",
-            "axis", "eps", "leaky_slope",
-            "upsample_mode", "fused_activation",
+            "stride_h","stride_w","pad_h","pad_w","dil_h","dil_w","groups",
+            "kernel_h","kernel_w",
+            "scale_h","scale_w","target_h","target_w",
+            "axis","eps","leaky_slope",
+            "upsample_mode","fused_activation",
         }
         for n in nodes:
             if not isinstance(n["op"], int):
                 raise ValueError(
-                    f"Node '{n['name']}' op={n['op']!r} "
-                    f"(type={type(n['op']).__name__})")
+                    f"Node '{n['name']}' op={n['op']!r} (type={type(n['op']).__name__})")
             f.write(struct.pack('<B', n["op"]))
             nb = n["name"].encode('utf-8')
             f.write(struct.pack('<I', len(nb)))
@@ -880,32 +804,28 @@ def write_engine(path, weights, nodes, graph_inputs, graph_outputs,
             params = {k: v for k, v in params.items() if k in _PACK_KEYS}
             f.write(pack_op_params(**params))
 
-        # ---- Graph I/O indices ----
         for gi in graph_inputs:
             f.write(struct.pack('<i', gi))
         for go in graph_outputs:
             f.write(struct.pack('<i', go))
 
-        # ---- v2: input/output infos ----
         for info in input_infos:
             _write_tensor_info(f, info)
         for info in output_infos:
             _write_tensor_info(f, info)
 
-        # ---- Weight data ----
         for item in weights:
             f.write(item[1].tobytes())
 
 
-# ============================================================
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python onnx_to_engine.py model.onnx model.engine")
+        print("Kullanim: python onnx_to_engine.py model.onnx model.engine")
         sys.exit(1)
     try:
         convert(sys.argv[1], sys.argv[2])
     except Exception as e:
-        print(f"\nERROR: {e}")
+        print(f"\nHATA: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

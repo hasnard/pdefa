@@ -800,12 +800,12 @@ case OpType::ReduceSum: {
              *   remap(2→1): dim=2, ends=32 > 2  → yanlış
              *   orijinal:   dim=96, ends=32 ≤ 96 → doğru
              */
-            if (ax != ax_orig && rank == 4) {
-                const int64_t dim_remap = data.dim(ax);
-                const int64_t dim_orig  = data.dim(ax_orig);
-                if (e > dim_remap && e <= dim_orig) {
-                    ax = ax_orig;
-                }
+        if (ax != ax_orig && rank == 4) {
+              const int64_t dim_remap = data.dim(ax);
+              const int64_t dim_orig  = data.dim(ax_orig);
+              if (e > dim_remap * 2 && e <= dim_orig) {
+                  ax = ax_orig;
+              }
             }
 
             if (ax < 0 || ax >= rank) continue;
