@@ -1,9 +1,0 @@
-# ============================================================
-#  tools/CMakeLists.txt
-# ============================================================
-
-add_executable(op_profiler profiler/op_profiler.cpp)
-target_link_libraries(op_profiler PRIVATE engine::engine)
-
-add_executable(benchmark_yolo benchmark_yolo.cpp)
-target_link_libraries(benchmark_yolo PRIVATE engine::engine)

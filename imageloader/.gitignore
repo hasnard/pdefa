@@ -1,4 +1,0 @@
-build/
-*.o
-*.obj
-__pycache__/

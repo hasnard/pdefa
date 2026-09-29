@@ -1,0 +1,97 @@
+LIBRARY pdefa_native
+EXPORTS
+    ; --- pdefa meta ---
+    pdefa_version
+    pdefa_last_error
+
+    ; --- image ---
+    pdefa_image_load
+    pdefa_image_free
+    pdefa_image_width
+    pdefa_image_height
+    pdefa_image_channels
+    pdefa_image_format
+    pdefa_image_pixels
+
+    ; --- preprocess ---
+    pdefa_preprocess_letterbox
+    pdefa_prepare_for_engine
+    pdefa_load_image_as_tensor
+
+    ; --- postprocess ---
+    pdefa_map_box_to_original
+    pdefa_map_point_to_original
+
+    ; --- engine meta ---
+    engine_version
+    engine_last_error
+    engine_status_string
+    engine_dtype_size
+    engine_simd_level
+    engine_cpu_brand
+
+    ; --- context ---
+    engine_context_create
+    engine_context_destroy
+    engine_context_set_num_threads
+    engine_context_get_num_threads
+    engine_context_num_physical_cores
+    engine_context_has_avx2
+    engine_context_has_avx512
+
+    ; --- tensor ---
+    engine_tensor_create
+    engine_tensor_create_from_data
+    engine_tensor_data
+    engine_tensor_shape
+    engine_tensor_copy_from
+    engine_tensor_copy_to
+    engine_tensor_numel
+    engine_tensor_dtype
+    engine_tensor_rank
+    engine_tensor_destroy
+
+    ; --- model ---
+    engine_model_load
+    engine_model_input_count
+    engine_model_output_count
+    engine_model_name
+    engine_model_destroy
+
+    ; --- session ---
+    engine_session_create
+    engine_session_set_input
+    engine_session_run
+    engine_session_get_output
+    engine_session_destroy
+
+    engine_run_simple
+    engine_model_input_info
+    engine_model_output_info
+    engine_session_get_stats
+    engine_session_set_profile_callback
+    engine_session_clear_profile_callback
+    engine_session_debug_intermediate
+    engine_ops_matmul
+    engine_ops_relu
+    engine_ops_silu
+    engine_ops_add
+    engine_ops_sub
+    engine_ops_mul
+    engine_ops_div
+    engine_ops_sigmoid
+    engine_ops_tanh
+    engine_ops_gelu
+    engine_ops_clip
+    engine_ops_softmax
+    engine_ops_reduce_max
+    engine_ops_reduce_sum
+    engine_ops_reduce_mean
+    engine_ops_argmax
+    engine_ops_gather
+    engine_ops_reshape
+    engine_ops_transpose
+    engine_ops_concat
+    engine_ops_stack
+    engine_random_randn
+    engine_random_rand

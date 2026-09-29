@@ -1,11 +1,11 @@
 # ============================================================
 #  Dependencies.cmake
-#  Threading ve diğer opsiyonel bağımlılıkları bulur.
+#  Locates threading and other optional dependencies.
 # ============================================================
 
 include(FetchContent)
 
-# ---------- Threads (zorunlu) ----------
+# ---------- Threads (required) ----------
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
@@ -20,11 +20,11 @@ if(ENGINE_ENABLE_OPENMP)
         target_compile_definitions(engine_deps INTERFACE ENGINE_USE_OPENMP=1)
         message(STATUS "[Deps] OpenMP enabled")
     else()
-        message(STATUS "[Deps] OpenMP not found, using std::thread pool")
+        message(STATUS "[Deps] OpenMP not found; using std::thread pool")
     endif()
 endif()
 
-# ---------- TBB (isteğe bağlı) ----------
+# ---------- TBB (optional) ----------
 if(ENGINE_ENABLE_TBB)
     find_package(TBB QUIET)
     if(TBB_FOUND)
@@ -36,7 +36,7 @@ if(ENGINE_ENABLE_TBB)
     endif()
 endif()
 
-# ---------- GoogleTest (testler için) ----------
+# ---------- GoogleTest (for tests) ----------
 if(ENGINE_BUILD_TESTS)
     find_package(GTest QUIET)
     if(NOT GTest_FOUND)
@@ -69,12 +69,13 @@ if(ENGINE_BUILD_BENCHMARKS)
     endif()
 endif()
 
-# ---------- OpenCV (opsiyonel, tools için) ----------
+# ---------- OpenCV (optional, for tools) ----------
 option(ENGINE_ENABLE_OPENCV "Enable OpenCV for tools (image loading)" OFF)
 if(ENGINE_ENABLE_OPENCV)
     find_package(OpenCV QUIET)
     if(OpenCV_FOUND)
-        target_link_libraries(engine_deps INTERFACE opencv_core opencv_imgproc opencv_imgcodecs)
+        target_link_libraries(engine_deps INTERFACE
+            opencv_core opencv_imgproc opencv_imgcodecs)
         target_compile_definitions(engine_deps INTERFACE ENGINE_USE_OPENCV=1)
         message(STATUS "[Deps] OpenCV ${OpenCV_VERSION} enabled")
     endif()

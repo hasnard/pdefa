@@ -31,7 +31,7 @@ dependencies = []
 [project.optional-dependencies]
 test = ["pytest>=7", "pytest-cov"]
 dev = ["pytest>=7", "pytest-cov", "build", "twine", "ruff", "mypy", "pre-commit"]
-bench = ["numpy", "torch", "ultralytics"]
+bench = ["numpy", "torch", "torchvision", "ultralytics", "onnxruntime"]
 docs = ["mkdocs", "mkdocs-material"]
 
 [project.urls]

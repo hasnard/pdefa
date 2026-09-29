@@ -1,16 +1,13 @@
-# Test data — bu dosyalar repoda kalsın
-!pdefa/tests/data/*.jpg
-!pdefa/tests/data/*.png
-!pdefa/tests/data/*.engine
-
 # ============================================================
 # Build çıktıları
 # ============================================================
-build/
+/build/
+/PDEFA1.0/build/
+/imageloader/build/
+/pdefa/build/
 build_*/
 cmake-build-*/
 out/
-bin/
 dist/
 dist_linux/
 _deps/
@@ -42,13 +39,14 @@ compile_commands.json
 *.ilk
 *.exp
 
-# İstisna: paket içindeki native library'ler kalsın
+# İstisna: Python paketindeki native library'ler repoda kalsın
+# (Üst klasör ignore EDİLMEDİĞİ için bu çalışır)
 !pdefa/python/src/pdefa/lib/*.dll
 !pdefa/python/src/pdefa/lib/*.so
 !pdefa/python/src/pdefa/lib/*.dylib
 
 # ============================================================
-# Debug / dump / log / profiling
+# Debug / dump / log
 # ============================================================
 dumps/
 *.bin
@@ -64,17 +62,18 @@ yolo_out.txt
 *_stdout.txt
 
 # ============================================================
-# Testing / CTest
+# Testing
 # ============================================================
 Testing/
 LastTest.log
 CTestCostData.txt
 
 # ============================================================
-# Model dosyaları
+# Model dosyaları (test verisi hariç)
 # ============================================================
 *.engine
-*.engine.keep
+!pdefa/tests/data/*.engine
+!pdefa/tests/data/**/*.engine
 *.onnx
 *.pt
 *.pth
@@ -85,7 +84,7 @@ CTestCostData.txt
 *.safetensors
 
 # ============================================================
-# Büyük görseller / test asset'leri
+# Büyük görseller
 # ============================================================
 imageloader/images/james_webb.png
 imageloader/tests/test_images/james_webb.png
@@ -103,8 +102,7 @@ develop-eggs/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# DİKKAT: lib/ ve lib64/ SİLİNDİ — artık pdefa/lib'i öldürmüyor
 parts/
 sdist/
 var/
@@ -167,7 +165,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 desktop.ini
-Yeni Metin Belgesi.txt
 
 # ============================================================
 # Backup / geçici
