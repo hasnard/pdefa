@@ -1,7 +1,24 @@
-include src/pdefa/lib/*.dll
-include src/pdefa/lib/*.so
-include src/pdefa/lib/*.dylib
-include src/pdefa/py.typed
+# --- Native libraries (repo layout) ---
+include pdefa/python/src/pdefa/lib/*.dll
+include pdefa/python/src/pdefa/lib/*.so
+include pdefa/python/src/pdefa/lib/*.dylib
+include pdefa/python/src/pdefa/py.typed
+
+# --- Package sources ---
+recursive-include pdefa/python/src/pdefa *.py
+recursive-include pdefa/python/src/pdefa/lib *.py
+
+# --- Tests (sdist only) ---
+recursive-include pdefa/tests *.py
+recursive-include pdefa/tests/data *
+
+# --- Examples ---
+recursive-include examples *
+
+# --- Docs ---
+recursive-include docs *
+
+# --- Top-level metadata ---
 include README.md
 include LICENSE
 include COMMERCIAL_LICENSE.md
@@ -13,6 +30,9 @@ include CONTRIBUTING.md
 include CODE_OF_CONDUCT.md
 include CITATION.cff
 include AUTHORS.md
-recursive-include docs *
-recursive-include examples *
-global-exclude *.py[cod] __pycache__ *.egg-info
+include pyproject.toml
+
+# --- Global excludes ---
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.egg-info
