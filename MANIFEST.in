@@ -1,0 +1,18 @@
+include src/pdefa/lib/*.dll
+include src/pdefa/lib/*.so
+include src/pdefa/lib/*.dylib
+include src/pdefa/py.typed
+include README.md
+include LICENSE
+include COMMERCIAL_LICENSE.md
+include CLA.md
+include CHANGELOG.md
+include NOTICE
+include SECURITY.md
+include CONTRIBUTING.md
+include CODE_OF_CONDUCT.md
+include CITATION.cff
+include AUTHORS.md
+recursive-include docs *
+recursive-include examples *
+global-exclude *.py[cod] __pycache__ *.egg-info

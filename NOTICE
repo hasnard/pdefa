@@ -1,0 +1,13 @@
+pdefa
+Copyright (C) 2026 Hasan Arda Acar
+
+This product is licensed under the GNU Affero General Public License
+v3.0 or later (AGPL-3.0-or-later). A commercial license is also
+available — see COMMERCIAL_LICENSE.md.
+
+----------------------------------------------------------------------
+Third-party components
+----------------------------------------------------------------------
+
+This software bundles no third-party source code. It depends only on
+the C++ standard library and Python's built-in `ctypes` module.

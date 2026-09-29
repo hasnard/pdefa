@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use pdefa in research, please cite it."
+title: "pdefa: CPU inference engine with built-in image loader + YOLO post-process"
+abstract: >
+  A zero-dependency CPU inference engine written in C++20 with AVX2 SIMD
+  kernels, exposed to Python via ctypes. Built-in PNG/JPEG loader, ONNX to
+  engine converter, and YOLO post-processing.
+version: 1.0.3
+date-released: 2026-09-24
+license: AGPL-3.0-or-later
+authors:
+  - family-names: Acar
+    given-names: Hasan Arda
+    email: info@pdfduty.com
+repository-code: "https://github.com/kullanici/pdefa"
+keywords:
+  - inference
+  - yolo
+  - onnx
+  - cpu
+  - avx2
+type: software

@@ -1,0 +1,88 @@
+=== DİNAMİK DOSYA YAPISI VE BOYUT RAPORU ===
+
+Tarama Konumu: D:\PROJE\engineforaiincpu\PDEFA1.0
+
+
+[INCLUDE DİZİNİ]
+    📁 include\engine/
+    📄 include\engine\dtype.hpp  (15.54 KB)
+    📄 include\engine\engine.hpp  (1.62 KB)
+    📄 include\engine\engine_c_api.h  ➡️  [0 KB / Boş]
+    📄 include\engine\graph.hpp  (2.42 KB)
+    📁 include\engine\kernels/
+    📄 include\engine\kernels\kernel_types.hpp  (2.77 KB)
+    📁 include\engine\loader/
+    📄 include\engine\loader\custom_loader.hpp  (1.35 KB)
+    📁 include\engine\memory/
+    📄 include\engine\memory\aligned_allocator.hpp  (9.04 KB)
+    📄 include\engine\memory\arena.hpp  (11.08 KB)
+    📄 include\engine\memory\memory_plan.hpp  (3.62 KB)
+    📄 include\engine\model.hpp  (1.74 KB)
+    📁 include\engine\ops/
+    📄 include\engine\ops\activation.hpp  (590 bytes)
+    📄 include\engine\ops\concat.hpp  (812 bytes)
+    📄 include\engine\ops\conv2d.hpp  (1.79 KB)
+    📄 include\engine\ops\elementwise.hpp  (706 bytes)
+    📄 include\engine\ops\matmul.hpp  (915 bytes)
+    📄 include\engine\ops\norm.hpp  (1.11 KB)
+    📄 include\engine\ops\pooling.hpp  (1.03 KB)
+    📄 include\engine\ops\softmax.hpp  (416 bytes)
+    📄 include\engine\ops\upsample.hpp  (1.12 KB)
+    📁 include\engine\optimizer/
+    📄 include\engine\optimizer\graph_optimizer.hpp  (1.60 KB)
+    📄 include\engine\optimizer\layout_transform.hpp  (905 bytes)
+    📄 include\engine\optimizer\quantization.hpp  (909 bytes)
+    📁 include\engine\runtime/
+    📄 include\engine\runtime\affinity.hpp  (2.56 KB)
+    📄 include\engine\runtime\cpu_info.hpp  (7.71 KB)
+    📄 include\engine\runtime\scheduler.hpp  (3.70 KB)
+    📄 include\engine\runtime\thread_pool.hpp  (6.03 KB)
+    📄 include\engine\session.hpp  (2.05 KB)
+    📄 include\engine\shape.hpp  (15.63 KB)
+    📄 include\engine\tensor.hpp  (11.61 KB)
+
+[SRC DİZİNİ]
+    📁 src\api/
+    📄 src\api\engine_api.cpp  ➡️  [0 KB / Boş]
+    📄 src\CMakeLists.txt  (3.27 KB)
+    📁 src\core/
+    📄 src\core\model.cpp  ➡️  [0 KB / Boş]
+    📄 src\core\session.cpp  (11.79 KB)
+    📄 src\core\tensor.cpp  (9.57 KB)
+    📁 src\kernels/
+    📁 src\kernels\generic/
+    📄 src\kernels\generic\matmul_ref.cpp  (2.78 KB)
+    📄 src\kernels\kernel_registry.cpp  (4.24 KB)
+    📁 src\kernels\simd/
+    📁 src\kernels\simd\avx2/
+    📄 src\kernels\simd\avx2\activation_avx2.cpp  (5.96 KB)
+    📄 src\kernels\simd\avx2\conv2d_avx2.cpp  (7.79 KB)
+    📄 src\kernels\simd\avx2\matmul_avx2.cpp  (8.13 KB)
+    📁 src\kernels\simd\avx512/
+    📄 src\kernels\simd\avx512\matmul_avx512.cpp  (4.12 KB)
+    📁 src\loader/
+    📄 src\loader\custom_loader.cpp  (6.34 KB)
+    📄 src\loader\onnx_loader.cpp  ➡️  [0 KB / Boş]
+    📄 src\loader\weight_packer.cpp  ➡️  [0 KB / Boş]
+    📁 src\memory/
+    📄 src\memory\aligned_allocator.cpp  (8.28 KB)
+    📄 src\memory\arena.cpp  (9.91 KB)
+    📄 src\memory\memory_plan.cpp  (7.09 KB)
+    📁 src\ops/
+    📄 src\ops\activation.cpp  (4.65 KB)
+    📄 src\ops\concat.cpp  (3.59 KB)
+    📄 src\ops\conv2d.cpp  (11.42 KB)
+    📄 src\ops\matmul.cpp  (4.55 KB)
+    📄 src\ops\norm.cpp  (3.12 KB)
+    📄 src\ops\pooling.cpp  (5.00 KB)
+    📄 src\ops\softmax.cpp  (1.16 KB)
+    📄 src\ops\upsample.cpp  (8.47 KB)
+    📁 src\optimizer/
+    📄 src\optimizer\graph_optimizer.cpp  (9.58 KB)
+    📄 src\optimizer\layout_transform.cpp  (3.00 KB)
+    📄 src\optimizer\quantization.cpp  (2.14 KB)
+    📁 src\runtime/
+    📄 src\runtime\affinity.cpp  (3.63 KB)
+    📄 src\runtime\cpu_info.cpp  (17.24 KB)
+    📄 src\runtime\scheduler.cpp  (6.48 KB)
+    📄 src\runtime\thread_pool.cpp  (9.06 KB)

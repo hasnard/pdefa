@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdefa"
+version = "1.0.3"
+description = "CPU inference engine with built-in image loader + YOLO post-process"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "COMMERCIAL_LICENSE.md"]
+authors = [{ name = "Hasan Arda Acar", email = "info@pdfduty.com" }]
+keywords = ["inference", "yolo", "onnx", "cpu", "ai", "avx2"]
+classifiers = [
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7", "pytest-cov"]
+dev = ["pytest>=7", "pytest-cov", "build", "twine", "ruff", "mypy", "pre-commit"]
+bench = ["numpy", "torch", "ultralytics"]
+docs = ["mkdocs", "mkdocs-material"]
+
+[project.urls]
+Homepage = "https://github.com/hasnard/pdefa"
+Source = "https://github.com/hasnard/pdefa"
+"Issue Tracker" = "https://github.com/hasnard/pdefa/issues"
+"Commercial License" = "mailto:info@pdfduty.com"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"pdefa" = ["py.typed"]
+"pdefa.lib" = ["*.dll", "*.so", "*.dylib"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "slow: long-running tests",
+    "numerical: requires torch/ultralytics",
+    "integration: requires .engine file",
+]
+filterwarnings = ["error", "ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.8"
+ignore_missing_imports = true

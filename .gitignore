@@ -1,0 +1,186 @@
+# ============================================================
+# Build çıktıları
+# ============================================================
+build/
+build_*/
+cmake-build-*/
+out/
+bin/
+dist/
+dist_linux/
+_deps/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.tlog
+*.recipe
+*.lastbuildstate
+
+# ============================================================
+# Derlenmiş binary
+# ============================================================
+*.exe
+*.dll
+*.so
+*.dylib
+*.lib
+*.obj
+*.o
+*.a
+*.pdb
+*.ilk
+*.exp
+
+# İstisna: paket içindeki native library'ler kalsın
+!pdefa/python/src/pdefa/lib/*.dll
+!pdefa/python/src/pdefa/lib/*.so
+!pdefa/python/src/pdefa/lib/*.dylib
+
+# ============================================================
+# Debug / dump / log / profiling
+# ============================================================
+dumps/
+*.bin
+*.f32
+*.log
+*.csv
+bench*.txt
+out.txt
+build_log.txt
+profile.csv
+yolo_out.txt
+*_stderr.txt
+*_stdout.txt
+
+# ============================================================
+# Testing / CTest
+# ============================================================
+Testing/
+LastTest.log
+CTestCostData.txt
+
+# ============================================================
+# Model dosyaları
+# ============================================================
+*.engine
+*.engine.keep
+*.onnx
+*.pt
+*.pth
+*.weights
+*.tflite
+*.pb
+*.h5
+*.safetensors
+
+# ============================================================
+# Büyük görseller / test asset'leri
+# ============================================================
+imageloader/images/james_webb.png
+imageloader/tests/test_images/james_webb.png
+imageloader/tests/test_images/Rotating_earth_*.gif
+dist_linux/zidane.png
+
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ============================================================
+# Virtual env
+# ============================================================
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# ============================================================
+# Test / coverage
+# ============================================================
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# ============================================================
+# Type check / lint
+# ============================================================
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+.cache/
+
+# ============================================================
+# Benchmark çıktıları
+# ============================================================
+benchmarks/results/
+benchmarks/*.json
+benchmarks/*.csv
+benchmarks/*.log
+
+# ============================================================
+# Node / frontend
+# ============================================================
+node_modules/
+
+# ============================================================
+# IDE / OS
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+Yeni Metin Belgesi.txt
+
+# ============================================================
+# Backup / geçici
+# ============================================================
+*.bak
+*.orig
+*.old
+*.tmp
+
+# ============================================================
+# Secrets
+# ============================================================
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# Build artifacts
+# ============================================================
+*.whl
+*.tar.gz
