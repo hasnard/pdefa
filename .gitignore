@@ -1,3 +1,8 @@
+# Test data — bu dosyalar repoda kalsın
+!pdefa/tests/data/*.jpg
+!pdefa/tests/data/*.png
+!pdefa/tests/data/*.engine
+
 # ============================================================
 # Build çıktıları
 # ============================================================
