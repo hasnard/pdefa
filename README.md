@@ -22,13 +22,13 @@ No external Python dependencies.
 
 ## Quick Start in 60 Seconds
 
-### YOLO detection (3 lines)
+### YOLO detection (one-liner)
 
 ```python
 import pdefa
 
 model = pdefa.load("yolov8n.engine")
-boxes = model("image.jpg")
+boxes = model("bus.jpg", conf_thres=0.25)
 
 for b in boxes:
     print(f"cls={b['cls']}  conf={b['conf']:.3f}  "
@@ -45,7 +45,7 @@ model   = pdefa.Model(ctx, "yolov8n.engine")
 session = pdefa.Session(ctx, model)
 
 # 1. Prepare image
-tensor, meta = pdefa.prepare_for_model(model, "image.jpg")
+tensor, meta = pdefa.prepare_for_model(model, "bus.jpg")
 
 # 2. Run inference
 session.set_input(0, tensor)
@@ -54,9 +54,25 @@ session.run()
 # 3. Raw output (Tensor)
 out = session.output(0)
 
-# 4. Decode to boxes
+# 4. Decode to boxes (list of dicts)
 boxes = pdefa.decode_yolo(out, meta, conf_thres=0.25)
 ```
+
+> **Note:** `decode_yolo` returns `list[dict]`. Access fields with brackets:
+> `d['cls']`, `d['conf']`, `d['x1']`, `d['y1']`, `d['x2']`, `d['y2']`.
+
+---
+
+## Examples
+
+Runnable examples in [`examples/`](examples/):
+
+```bash
+python examples/yolo_inference.py yolov8n.engine bus.jpg
+```
+
+The `examples/yolo_inference.py` script prints detections with class names,
+confidence scores, and original-image coordinates.
 
 ---
 
@@ -75,7 +91,7 @@ pdefa.cpu_brand()     # → "AMD/Intel ..."   CPU model
 ```python
 model = pdefa.load("yolov8n.engine")   # load model
 model.set_num_threads(8)                # set thread count
-boxes = model("image.jpg", conf_thres=0.25, iou_thres=0.45)
+boxes = model("bus.jpg", conf_thres=0.25, iou_thres=0.45)
 ```
 
 ### Context
@@ -95,15 +111,19 @@ Loads a `.engine` file.
 ```python
 model = pdefa.Model(ctx, "yolov8n.engine")
 
-model.name                        # → "model_name" (if available)
+model.name                        # → path to the .engine file (property)
 
 info = model.input_info(0)
-print(info.name, info.shape, info.dtype)
-# → "input_0" (1, 3, 640, 640) 0
+print(info.name, info.shape)
+# → "input_0" (1, 3, 640, 640)
 
 info = model.output_info(0)
-# → "output_0" (1, 84, 8400) 0
+# → "output_0" (1, 84, 8400)
 ```
+
+> **Note:** `model.name` is a **property** (no parentheses). It returns the
+> `.engine` file path — the format does not currently store an internal name.
+> `model.input_info(0)` is a **method** (parentheses required).
 
 ### Session
 
@@ -120,6 +140,9 @@ arr = out.tolist()                     # nested Python list
 
 s = session.stats()
 print(f"last: {s['last_run_ms']:.3f} ms, {s['runs']} runs")
+
+# Shortcut: run + decode in one call
+boxes = session.run_and_decode(meta, conf_thres=0.25)
 
 # Intermediate layer (debug)
 t = session.debug_intermediate(5)
@@ -268,7 +291,7 @@ No native batch — but runs **in parallel** via multiple sessions.
 ctx   = pdefa.Context()
 model = pdefa.Model(ctx, "yolov8n.engine")
 
-with pdefa.BatchInference(ctx, model, batch_size=4, num_threads=4) as batch:
+with pdefa.BatchInference(ctx, model, batch_size=4) as batch:
     results = batch.run(["a.jpg", "b.jpg", "c.jpg", "d.jpg"])
     for out_tensor, meta in results:
         arr = out_tensor.tolist()
@@ -470,7 +493,7 @@ These models fail at the **PyTorch → ONNX** stage, before pdefa is involved.
 
 ### v1.0.3 — 2026-09-24
 
-**🎯 NumPy-independent release**
+**🎣 NumPy-independent release**
 
 This release removes **all external Python dependencies**. Prior versions required NumPy for `decode_yolo`, `from_numpy`, and tensor data access. **v1.0.3 runs without installing any additional packages** — `pip install pdefa` is now fully self-contained.
 
@@ -552,7 +575,6 @@ This release removes **all external Python dependencies**. Prior versions requir
 ### v1.0.0.1 2026-09-17
 - PNG + JPEG loader (baseline, grayscale, RGB, RGBA, Adam7)
 
-
 ### v1.0.0 — 2026-09-15
 
 - Initial release
@@ -563,6 +585,7 @@ This release removes **all external Python dependencies**. Prior versions requir
 - CMake build system
 - Cross-platform support (Windows / Linux / macOS)
 
+---
 
 ## Roadmap
 
@@ -574,14 +597,12 @@ This release removes **all external Python dependencies**. Prior versions requir
 - **Swin window attention** `Roll` op
 ### v1.5.6
 - **MaxViT** converter fix
-
 ### v1.8
 - **Grouped convolution** optimization (RegNet, MobileNet variants)
 ### v1.8.1
 - **Bilinear Resize** for segmentation models
 ### v1.9
 - **INT8 quantization** support
-
 ### v2.0
 - **AVX-512 kernels** (prototype exists; needs full integration + benchmarks)
 ### v2.1
@@ -676,41 +697,75 @@ Source: https://github.com/hasnard/pdefa
 
 The engine is C++20, built with CMake. The Python package uses `setuptools`.
 
+### Quick install (prebuilt DLLs are in the repo)
+
 ```bash
 git clone https://github.com/hasnard/pdefa
-cd pdefa/python
-pip install -e .
+cd pdefa
+pip install -e ".[test]"
+
+# Run tests
+cd pdefa
+python -m pytest tests -v
 ```
 
-### Rebuilding the engine (Windows)
+### Rebuilding the engine from source (Windows)
 
 ```powershell
-# Engine
-cd PDEFA1.0
-Remove-Item -Recurse -Force build
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release `
-      -DENGINE_BUILD_TESTS=OFF -DENGINE_BUILD_BENCHMARKS=OFF `
-      -DENGINE_BUILD_EXAMPLES=OFF -DENGINE_BUILD_TOOLS=OFF
-cmake --build build --config Release --parallel
+git clone https://github.com/hasnard/pdefa
+cd pdefa
 
-# Wrapper
-cd ..\pdefa
-Remove-Item -Recurse -Force build
+# 1) Build the engine (produces engine.lib + engine.dll)
+cd PDEFA1.0
+Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release `
+      -DENGINE_BUILD_TESTS=OFF `
+      -DENGINE_BUILD_BENCHMARKS=OFF `
+      -DENGINE_BUILD_EXAMPLES=OFF `
+      -DENGINE_BUILD_TOOLS=OFF
+cmake --build build --config Release --parallel
+cd ..
+
+# 2) Build the native wrapper (produces pdefa_native.dll)
+Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel
 
-# Copy DLL into the Python package
-Copy-Item build\bin\pdefa_native.dll python\src\pdefa\lib\pdefa_native.dll -Force
+# 3) Copy DLLs into the Python package
+Copy-Item build\bin\pdefa_native.dll pdefa\python\src\pdefa\lib\ -Force
+Copy-Item build\bin\engine.dll       pdefa\python\src\pdefa\lib\ -Force
+
+# 4) Install in editable mode
+pip install -e ".[test]"
+
+# 5) Test
+cd pdefa
+python -m pytest tests -v
 ```
+
+Expected: `86 passed`
 
 ### Building a wheel
 
 ```powershell
-cd pdefa\python
+cd pdefa
 Remove-Item -Recurse -Force dist, build -ErrorAction SilentlyContinue
-python -m build --wheel
-# → dist/pdefa-1.0.3-py3-none-win_amd64.whl
+python -m build
+# → dist/pdefa-1.0.3-py3-none-any.whl
+# → dist/pdefa-1.0.3.tar.gz
 ```
+
+Publish to TestPyPI (test) or PyPI (production):
+
+```powershell
+# TestPyPI
+python -m twine upload --repository testpypi dist/*
+
+# PyPI
+python -m twine upload dist/*
+```
+
+Username: `__token__` — Password: your API token (`pypi-...`).
 
 ---
 
