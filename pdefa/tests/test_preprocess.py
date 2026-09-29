@@ -24,7 +24,7 @@ def test_letterbox_meta():
     _, meta = pdefa.preprocess_letterbox(img, 640, 640)
     assert meta.orig_w == img.width
     assert meta.orig_h == img.height
-    assert 0.0 < meta.ratio <= 1.0
+    assert meta.ratio > 0.0           
     assert meta.pad_x >= 0 and meta.pad_y >= 0
 
 

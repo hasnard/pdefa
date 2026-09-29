@@ -17,7 +17,7 @@ def _load_native():
         "Darwin":  "libpdefa_native.dylib",
         "Linux":   "libpdefa_native.so",
     }.get(system, "libpdefa_native.so")
-    p = files("pdefa.lib") / name
+    p = files("pdefa") / "lib" / name
     if not p.is_file():
         raise RuntimeError(f"Native library not found: {p}")
     return ctypes.CDLL(str(p))
@@ -74,6 +74,9 @@ _lib.engine_tensor_data.argtypes = [
     ctypes.POINTER(ctypes.c_size_t),
 ]
 _lib.engine_tensor_data.restype = ctypes.c_int
+
+_lib.engine_tensor_dtype.argtypes = [ctypes.c_void_p]
+_lib.engine_tensor_dtype.restype  = ctypes.c_int
 
 # Image
 _lib.pdefa_image_load.argtypes = [ctypes.c_char_p]
@@ -300,7 +303,11 @@ _lib.engine_random_rand.restype   = ctypes.c_int
 #  OPS — Python wrapper'lar
 # ==================================================================
 
-def _ops_binary(a: Tensor, b: Tensor, fn) -> Tensor:
+def _ops_binary(a, b, fn) -> Tensor:
+    if not isinstance(a, Tensor):
+        a = _scalar_tensor(float(a))
+    if not isinstance(b, Tensor):
+        b = _scalar_tensor(float(b))
     h = ctypes.c_void_p()
     _check(fn(a.raw, b.raw, ctypes.byref(h)), "ops_binary")
     return Tensor(h, owns=True)
@@ -578,8 +585,22 @@ class Tensor:
         size = ctypes.c_size_t()
         _check(_lib.engine_tensor_data(self._handle, ctypes.byref(ptr),
                                         ctypes.byref(size)), "tensor_data")
-        n = size.value // 4
-        raw = (ctypes.c_float * n).from_address(ptr.value)
+        dt = _lib.engine_tensor_dtype(self._handle)
+        if dt == 5:      # I32
+            n = size.value // 4
+            raw = (ctypes.c_int32 * n).from_address(ptr.value)
+        elif dt == 6:    # I64
+            n = size.value // 8
+            raw = (ctypes.c_int64 * n).from_address(ptr.value)
+        elif dt == 3:    # I8
+            n = size.value
+            raw = (ctypes.c_int8 * n).from_address(ptr.value)
+        elif dt == 4:    # U8
+            n = size.value
+            raw = (ctypes.c_uint8 * n).from_address(ptr.value)
+        else:            # F32 (default)
+            n = size.value // 4
+            raw = (ctypes.c_float * n).from_address(ptr.value)
         flat = list(raw)
         return _reshape_list(flat, self.shape)
 
@@ -644,9 +665,14 @@ class Tensor:
     def __matmul__(self, other):
         if not isinstance(other, Tensor):
             raise TypeError("matmul requires Tensor")
-        h = ctypes.c_void_p()
-        # ops_matmul is out-param; use zero-alloc
-        M, N = self.shape[0], other.shape[1]
+        sa, sb = self.shape, other.shape
+        if len(sa) != 2 or len(sb) != 2:
+            raise PdefaError("matmul: 2D tensors required")
+        if sa[1] != sb[0]:
+            raise PdefaError(
+                f"matmul: inner dims mismatch {sa} @ {sb}"
+            )
+        M, N = sa[0], sb[1]
         out = tensor_empty([M, N])
         _check(_lib.engine_ops_matmul(self._handle, other._handle, out._handle),
                "ops_matmul")
@@ -981,6 +1007,10 @@ def ops_matmul(a: Tensor, b: Tensor, out: Tensor = None) -> Tensor:
         sa, sb = a.shape, b.shape
         if len(sa) != 2 or len(sb) != 2:
             raise PdefaError("ops_matmul: 2D tensors required")
+        if sa[1] != sb[0]:
+            raise PdefaError(
+                f"ops_matmul: inner dims mismatch {sa} @ {sb}"
+            )
         M, N = sa[0], sb[1]
         out = tensor_empty([M, N], dtype=0)
     _check(_lib.engine_ops_matmul(a.raw, b.raw, out.raw), "ops_matmul")

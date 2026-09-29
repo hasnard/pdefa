@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 # ---- Proje bilgisi ----
 project(engine-ai
-    VERSION 0.1.0
+    VERSION 1.0.3
     DESCRIPTION "CPU-optimized custom inference engine"
     LANGUAGES CXX C
 )

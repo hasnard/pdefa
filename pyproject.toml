@@ -13,7 +13,7 @@ license-files = ["LICENSE", "COMMERCIAL_LICENSE.md"]
 authors = [{ name = "Hasan Arda Acar", email = "info@pdfduty.com" }]
 keywords = ["inference", "yolo", "onnx", "cpu", "ai", "avx2"]
 classifiers = [
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -38,13 +38,13 @@ docs = ["mkdocs", "mkdocs-material"]
 Homepage = "https://github.com/hasnard/pdefa"
 Source = "https://github.com/hasnard/pdefa"
 "Issue Tracker" = "https://github.com/hasnard/pdefa/issues"
-"Commercial License" = "mailto:info@pdfduty.com"
+
 
 [tool.setuptools]
-package-dir = { "" = "src" }
+package-dir = { "" = "pdefa/python/src" }
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["pdefa/python/src"]
 
 [tool.setuptools.package-data]
 "pdefa" = ["py.typed"]

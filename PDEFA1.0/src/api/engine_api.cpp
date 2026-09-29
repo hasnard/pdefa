@@ -357,7 +357,7 @@ extern "C" ENGINE_API const char* ENGINE_CALL engine_version(void) {
 #ifdef ENGINE_VERSION_STRING
     return ENGINE_VERSION_STRING;
 #else
-    return "0.1.0";
+    return "1.0.3";
 #endif
 }
 
